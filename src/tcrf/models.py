@@ -16,9 +16,9 @@ class AutoCrfModelforSequenceTagging(AutoModelForTokenClassification):
         self.classifier = nn.Linear(config.hidden_size, config.num_labels)
         self.crf = ConditionalRandomField(
             self.num_labels,
-            label_encoding=self.config.label_encoding,
-            idx2tag=self.config.idx2tag,
-            include_start_end_transitions=self.config.include_start_end_transitions,
+            label_encoding=self.config.label_encoding,  # TODO
+            idx2tag=self.config.id2label,  # TODO
+            include_start_end_transitions=self.config.include_start_end_transitions,  # TODO
         )
         self.init_weights()
 
@@ -28,6 +28,7 @@ class AutoCrfModelforSequenceTagging(AutoModelForTokenClassification):
         position_ids=None,
         attention_mask=None,
         head_mask=None,
+        token_type_ids=None,
         inputs_embeds=None,
         labels=None,
         output_hidden_states=None,
@@ -43,6 +44,7 @@ class AutoCrfModelforSequenceTagging(AutoModelForTokenClassification):
             position_ids=position_ids,
             attention_mask=attention_mask,
             head_mask=head_mask,
+            token_type_ids= token_type_ids
             inputs_embeds=inputs_embeds,
             output_hidden_states=output_hidden_states,
             output_attentions=output_attentions,
