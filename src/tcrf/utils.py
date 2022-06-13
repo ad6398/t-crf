@@ -58,7 +58,7 @@ def load_conll_format_datasets(
                 else:
                     values = line.split()
                     assert len(values) == len(column_names)
-                    for i in range(column_names):
+                    for i in range(len(column_names)):
                         current_ex[i].append(values[i])
         raw_datasets[file] = current_dataset
 
