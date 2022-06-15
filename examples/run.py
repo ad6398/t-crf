@@ -1,4 +1,4 @@
-from tcrf.main import main, DataArguments, ModelArguments, TrainingArguments
+from tcrf import run_tcrf, DataArguments, ModelArguments, TrainingArguments
 
 model_args = ModelArguments(
     model_name_or_path="bert-base-uncased",
