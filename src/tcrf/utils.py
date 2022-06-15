@@ -60,8 +60,11 @@ def load_conll_format_datasets(
                     assert len(values) == len(column_names)
                     for i in range(len(column_names)):
                         current_ex[i].append(values[i])
+        current_dataset = Dataset.from_dict(current_dataset)
+
         raw_datasets[file] = current_dataset
 
+    print(raw_datasets)
     return raw_datasets
 
 
@@ -156,8 +159,8 @@ class DataArguments:
             "help": "An optional input test data file to predict on (a csv or JSON file)."
         },
     )
-    conll_format_column_names: Optional[List[str]] = field(
-        default=["words", "pos-tags", "chunk-tags", "ner-tags"],
+    conll_format_column_names: Optional[Tuple[str]] = field(
+        default=("words", "pos-tags", "chunk-tags", "ner-tags"),
         metadata={
             "help": "names that should be given to each columns of conll format datasets"
         },

@@ -28,7 +28,10 @@ from transformers import (
     set_seed,
 )
 from transformers.trainer_utils import get_last_checkpoint
-from transformers.utils import check_min_version, send_example_telemetry
+from transformers.utils import check_min_version
+
+# from transformers.utils import check_min_version, send_example_telemetry
+
 from transformers.utils.versions import require_version
 
 from .models import AutoCrfModelforSequenceTagging
@@ -42,7 +45,7 @@ from .utils import (
 
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
-check_min_version("4.20.0.dev0")
+# check_min_version("4.20.0.dev0")
 
 require_version(
     "datasets>=1.8.0",
@@ -52,24 +55,24 @@ require_version(
 logger = logging.getLogger(__name__)
 
 
-def main():
+def main(model_args=None, data_args=None, training_args=None):
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
-
-    parser = HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
-    if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
-        # If we pass only one argument to the script and it's the path to a json file,
-        # let's parse it to get our arguments.
-        model_args, data_args, training_args = parser.parse_json_file(
-            json_file=os.path.abspath(sys.argv[1])
-        )
-    else:
-        model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    if model_args == None and data_args == None and training_args == None:
+        parser = HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
+        if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
+            # If we pass only one argument to the script and it's the path to a json file,
+            # let's parse it to get our arguments.
+            model_args, data_args, training_args = parser.parse_json_file(
+                json_file=os.path.abspath(sys.argv[1])
+            )
+        else:
+            model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
     # Sending telemetry. Tracking the example usage helps us better allocate resources to maintain them. The
     # information sent is the one passed as arguments along with your Python/PyTorch versions.
-    send_example_telemetry("run_ner", model_args, data_args)
+    # send_example_telemetry("run_ner", model_args, data_args)
 
     # Setup logging
     logging.basicConfig(
@@ -147,7 +150,7 @@ def main():
         if extension == "txt":
             raw_datasets = load_conll_format_datasets(
                 datafiles=data_files,
-                column_names=data_args.conll_format_column_names,
+                column_names=list(data_args.conll_format_column_names),
                 docstart_string=data_args.conll_format_docstart_string,
                 empty_line_as_dcoument_divider=data_args.conll_format_empty_line_as_dcoument_divider,
             )
@@ -441,7 +444,7 @@ def main():
             }
 
     # Initialize our Trainer
-    trainer = (CrfTrainer if model_args.use_config else Trainer)(
+    trainer = (CrfTrainer if model_args.use_crf else Trainer)(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,

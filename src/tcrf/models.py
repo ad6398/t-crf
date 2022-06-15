@@ -44,7 +44,7 @@ class AutoCrfModelforSequenceTagging(AutoModelForTokenClassification):
             position_ids=position_ids,
             attention_mask=attention_mask,
             head_mask=head_mask,
-            token_type_ids= token_type_ids
+            token_type_ids=token_type_ids,
             inputs_embeds=inputs_embeds,
             output_hidden_states=output_hidden_states,
             output_attentions=output_attentions,
