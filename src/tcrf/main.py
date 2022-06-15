@@ -55,7 +55,7 @@ require_version(
 logger = logging.getLogger(__name__)
 
 
-def main(model_args=None, data_args=None, training_args=None):
+def run_tcrf(model_args=None, data_args=None, training_args=None):
     # See all possible arguments in src/transformers/training_args.py
     # or by passing the --help flag to this script.
     # We now keep distinct sets of args, for a cleaner separation of concerns.
@@ -541,8 +541,8 @@ def main(model_args=None, data_args=None, training_args=None):
 
 def _mp_fn(index):
     # For xla_spawn (TPUs)
-    main()
+    run_tcrf()
 
 
 if __name__ == "__main__":
-    main()
+    run_tcrf()
