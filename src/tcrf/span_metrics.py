@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Set, Callable
+from typing import Dict, List, Optional, Set, Callable, Iterable
 from collections import defaultdict
 
 import torch
@@ -308,3 +308,13 @@ class SpanBasedF1Measure:
         self._true_positives = defaultdict(int)
         self._false_positives = defaultdict(int)
         self._false_negatives = defaultdict(int)
+
+    @staticmethod
+    def detach_tensors(*tensors: torch.Tensor) -> Iterable[torch.Tensor]:
+        """
+        If you actually passed gradient-tracking Tensors to a Metric, there will be
+        a huge memory leak, because it will prevent garbage collection for the computation
+        graph. This method ensures the tensors are detached.
+        """
+        # Check if it's actually a tensor in case something else was passed.
+        return (x.detach() if isinstance(x, torch.Tensor) else x for x in tensors)

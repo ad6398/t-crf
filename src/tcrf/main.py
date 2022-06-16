@@ -420,14 +420,16 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
     def compute_metrics(p):
         predictions, labels = p
 
-        if torch.any(labels[:, 0] == -100):
+        if np.any(labels[:, 0] == -100):
             # remove logits corresponding to CLS token for span_level_metrics
             labels_ = labels[:, 1:]
             predictions_ = predictions[:, 1:]
         else:
             labels_ = labels
             predictions_ = predictions
-
+        # convert to tensor
+        labels_ = torch.tensor(labels_)
+        predictions_ = torch.tensor(predictions_)
         # Remove ignored index (special tokens)
         mask = labels_ != -100
         span_metrics(predictions=predictions_, gold_labels=labels_, mask=mask)
