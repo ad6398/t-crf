@@ -13,7 +13,7 @@ from typing import Optional
 import datasets
 import numpy as np
 from datasets import ClassLabel, load_dataset, load_metric
-
+import torch
 import transformers
 from transformers import (
     AutoConfig,
@@ -42,7 +42,7 @@ from .utils import (
     TrainingArguments,
     load_conll_format_datasets,
 )
-
+from .span_metrics import SpanBasedF1Measure
 
 # Will error if the minimal version of Transformers is not installed. Remove at your own risks.
 # check_min_version("4.20.0.dev0")
@@ -409,12 +409,32 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
 
     # Metrics
     metric = load_metric("seqeval")
+    span_id2_label = dict(model.config.id2label)
+    # span_id2_label = {-100: "O"}
+    span_metrics = SpanBasedF1Measure(
+        id2label=span_id2_label,
+        # ignore_classes=["O"],
+        label_encoding=model.config.label_encoding,
+    )
 
     def compute_metrics(p):
         predictions, labels = p
-        predictions = np.argmax(predictions, axis=2)
+
+        if torch.any(labels[:, 0] == -100):
+            # remove logits corresponding to CLS token for span_level_metrics
+            labels_ = labels[:, 1:]
+            predictions_ = predictions[:, 1:]
+        else:
+            labels_ = labels
+            predictions_ = predictions
 
         # Remove ignored index (special tokens)
+        mask = labels_ != -100
+        span_metrics(predictions=predictions_, gold_labels=labels_, mask=mask)
+        # reset metrics for different batches
+        span_metric_results = span_metrics.get_metric(reset=True)
+
+        predictions = np.argmax(predictions, axis=2)
         true_predictions = [
             [label_list[p] for (p, l) in zip(prediction, label) if l != -100]
             for prediction, label in zip(predictions, labels)
@@ -425,9 +445,9 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
         ]
 
         results = metric.compute(predictions=true_predictions, references=true_labels)
+        final_results = span_metric_results
         if data_args.return_entity_level_metrics:
             # Unpack nested dictionaries
-            final_results = {}
             for key, value in results.items():
                 if isinstance(value, dict):
                     for n, v in value.items():
@@ -436,12 +456,16 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
                     final_results[key] = value
             return final_results
         else:
-            return {
-                "precision": results["overall_precision"],
-                "recall": results["overall_recall"],
-                "f1": results["overall_f1"],
-                "accuracy": results["overall_accuracy"],
-            }
+
+            final_results.update(
+                {
+                    "tags-precision": results["overall_precision"],
+                    "tags-recall": results["overall_recall"],
+                    "tags-f1": results["overall_f1"],
+                    "tags-accuracy": results["overall_accuracy"],
+                }
+            )
+        return final_results
 
     # Initialize our Trainer
     trainer = (CrfTrainer if model_args.use_crf else Trainer)(

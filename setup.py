@@ -22,7 +22,7 @@ setup(
     install_requires=[
         "transformers>=4.6.0",
         "datasets",
-        "scikit-learn",
+        "torch",
         "seqeval",
     ],
 )
