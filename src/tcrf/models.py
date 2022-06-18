@@ -7,6 +7,80 @@ from transformers.modeling_outputs import TokenClassifierOutput
 from .crf import ConditionalRandomField
 
 
+class CRFforSequenceTagging(AutoModel):
+    def __init__(self, model_args, config):
+        super().__init__(config)
+        self.config = config
+        self.clf_model = model_args.custom_clf_model_class.from_pretrained(
+            model_args.model_name_or_path,
+            from_tf=bool(".ckpt" in model_args.model_name_or_path),
+            config=config,
+            cache_dir=model_args.cache_dir,
+            revision=model_args.model_revision,
+            use_auth_token=True if model_args.use_auth_token else None,
+            ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
+        )
+
+        self.crf = ConditionalRandomField(
+            self.num_labels,
+            label_encoding=self.config.label_encoding,  # TODO
+            idx2tag=self.config.id2label,  # TODO
+            include_start_end_transitions=self.config.include_start_end_transitions,  # TODO
+        )
+        self.init_weights()
+
+    def forward(
+        self,
+        input_ids=None,
+        position_ids=None,
+        attention_mask=None,
+        head_mask=None,
+        token_type_ids=None,
+        inputs_embeds=None,
+        labels=None,
+        output_hidden_states=None,
+        output_attentions=None,
+        return_dict=None,
+    ):
+        return_dict = (
+            return_dict if return_dict is not None else self.config.use_return_dict
+        )
+        outputs = self.clf_model(
+            input_ids,
+            position_ids=position_ids,
+            attention_mask=attention_mask,
+            head_mask=head_mask,
+            token_type_ids=token_type_ids,
+            inputs_embeds=inputs_embeds,
+            output_hidden_states=output_hidden_states,
+            output_attentions=output_attentions,
+            return_dict=return_dict,
+        )
+        clf_logits = outputs[0]
+
+        loss = None
+        if labels is not None:
+            loss = -self.crf(clf_logits, labels, attention_mask)
+        best_path = self.crf.viterbi_tags(clf_logits, mask=attention_mask)
+        # ignore score of path, just store the tags value
+        best_path = [x for x, _ in best_path]
+        logits *= 0
+        for i, path in enumerate(best_path):
+            for j, tag in enumerate(path):
+                # logits value for each tag
+                logits[i, j, int(tag)] = 1
+
+        if not return_dict:
+            output = (logits,) + outputs[2:]
+            return ((loss,) + output) if loss is not None else output
+        return TokenClassifierOutput(
+            loss=loss,
+            logits=logits,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )
+
+
 class AutoCrfModelforSequenceTagging(AutoModelForTokenClassification):
     def __init__(self, config):
         super().__init__(config)

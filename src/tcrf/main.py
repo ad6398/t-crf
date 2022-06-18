@@ -34,7 +34,7 @@ from transformers.utils import check_min_version
 
 from transformers.utils.versions import require_version
 
-from .models import AutoCrfModelforSequenceTagging
+from .models import AutoCrfModelforSequenceTagging, CRFforSequenceTagging
 from .trainers import CrfTrainer
 from .utils import (
     DataArguments,
@@ -247,20 +247,12 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
             revision=model_args.model_revision,
             use_auth_token=True if model_args.use_auth_token else None,
         )
-
     model = (
-        AutoCrfModelforSequenceTagging
-        if model_args.use_crf
-        else AutoModelForTokenClassification
-    ).from_pretrained(
-        model_args.model_name_or_path,
-        from_tf=bool(".ckpt" in model_args.model_name_or_path),
-        config=config,
-        cache_dir=model_args.cache_dir,
-        revision=model_args.model_revision,
-        use_auth_token=True if model_args.use_auth_token else None,
-        ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
+        AutoModelForTokenClassification
+        if model_args.custom_clf_model_class is None
+        else model_args.custom_clf_model_class
     )
+    model = CRFforSequenceTagging(model_args=model_args, config=config)
 
     # Tokenizer check: this script requires a fast tokenizer.
     if not isinstance(tokenizer, PreTrainedTokenizerFast):
@@ -444,7 +436,7 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
             }
 
     # Initialize our Trainer
-    trainer = (CrfTrainer if model_args.use_crf else Trainer)(
+    trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,

@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Dict
+from typing import List, Optional, Tuple, Dict, Callable
 from transformers import TrainingArguments
 from datasets import Dataset, DatasetDict
 
@@ -76,8 +76,14 @@ class ModelArguments:
 
     model_name_or_path: str = field(
         metadata={
-            "help": "Path to pretrained model or model identifier from huggingface.co/models"
+            "help": "Path to pretrained model or model identifier from huggingface.co/models or path to patrial orall layer's weight of custom model class"
         }
+    )
+    custom_clf_model_class: Optional[Callable] = field(
+        default=None,
+        metadata={
+            "help": "Pass a custom model class (sequence tagger) similar to AutoModelForTokenClassification which returns a logits. If none it will use AutoModelForTokenClassification class"
+        },
     )
     config_name: Optional[str] = field(
         default=None,
