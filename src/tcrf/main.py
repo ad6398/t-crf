@@ -224,6 +224,16 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
     )
 
     config.use_crf = model_args.use_crf
+    # Set the correspondences label/ID inside the model config
+    config.label2id = {l: i for i, l in enumerate(label_list)}
+    config.id2label = {i: l for i, l in enumerate(label_list)}
+    # Congigs realted to CRF TODO
+    # Indicates label encoding to find contraint transition. Current choices are
+    # "BIO", "IOB1", "BIOUL", and "BMES".
+    config.label_encoding = data_args.label_encoding
+    # include_start_end_transitions : `bool`, optional (default = `True`)
+    # Whether to include the start and end transition parameters.
+    config.include_start_end_transitions = data_args.include_start_end_transitions
 
     tokenizer_name_or_path = (
         model_args.tokenizer_name
@@ -247,14 +257,21 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
             revision=model_args.model_revision,
             use_auth_token=True if model_args.use_auth_token else None,
         )
-    model = (
-        AutoModelForTokenClassification
-        if model_args.custom_clf_model_class is None
-        else model_args.custom_clf_model_class
-    )
+    # print("config before model init", config)
+    # model = AutoCrfModelforSequenceTagging.from_pretrained(
+    #     model_args.model_name_or_path,
+    #     from_tf=bool(".ckpt" in model_args.model_name_or_path),
+    #     config=config,
+    #     cache_dir=model_args.cache_dir,
+    #     revision=model_args.model_revision,
+    #     use_auth_token=True if model_args.use_auth_token else None,
+    #     ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
+    # )
     model = CRFforSequenceTagging(model_args=model_args, config=config)
 
     # Tokenizer check: this script requires a fast tokenizer.
+    # print("config after model init", model.config)
+    # print(model)
     if not isinstance(tokenizer, PreTrainedTokenizerFast):
         raise ValueError(
             "This example script only works for models that have a fast tokenizer. Checkout the big table of models at"
@@ -280,17 +297,6 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
                 f"model labels: {list(sorted(model.config.label2id.keys()))}, dataset labels:"
                 f" {list(sorted(label_list))}.\nIgnoring the model labels as a result.",
             )
-
-    # Set the correspondences label/ID inside the model config
-    model.config.label2id = {l: i for i, l in enumerate(label_list)}
-    model.config.id2label = {i: l for i, l in enumerate(label_list)}
-    # Congigs realted to CRF TODO
-    # Indicates label encoding to find contraint transition. Current choices are
-    # "BIO", "IOB1", "BIOUL", and "BMES".
-    model.config.label_encoding = data_args.label_encoding
-    # include_start_end_transitions : `bool`, optional (default = `True`)
-    # Whether to include the start and end transition parameters.
-    model.config.include_start_end_transitions = data_args.include_start_end_transitions
 
     # Map that sends B-Xxx label to its I-Xxx counterpart
     b_to_i_label = []
@@ -323,6 +329,8 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
                 # Special tokens have a word id that is None. We set the label to -100 so they are automatically
                 # ignored in the loss function.
                 if word_idx is None:
+                    # print("ids appended")
+                    # label_ids.append(config.label2id["O"])
                     label_ids.append(-100)
                 # We set the label for the first token of each word.
                 elif word_idx != previous_word_idx:
