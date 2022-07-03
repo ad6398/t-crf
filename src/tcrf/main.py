@@ -257,21 +257,18 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
             revision=model_args.model_revision,
             use_auth_token=True if model_args.use_auth_token else None,
         )
-    # print("config before model init", config)
-    # model = AutoCrfModelforSequenceTagging.from_pretrained(
-    #     model_args.model_name_or_path,
-    #     from_tf=bool(".ckpt" in model_args.model_name_or_path),
-    #     config=config,
-    #     cache_dir=model_args.cache_dir,
-    #     revision=model_args.model_revision,
-    #     use_auth_token=True if model_args.use_auth_token else None,
-    #     ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
-    # )
-    model = CRFforSequenceTagging(model_args=model_args, config=config)
+    model = CRFforSequenceTagging.from_pretrained(
+        model_args.model_name_or_path,
+        from_tf=bool(".ckpt" in model_args.model_name_or_path),
+        config=config,
+        cache_dir=model_args.cache_dir,
+        revision=model_args.model_revision,
+        use_auth_token=True if model_args.use_auth_token else None,
+        ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
+        model_args=model_args,
+    )
 
-    # Tokenizer check: this script requires a fast tokenizer.
-    # print("config after model init", model.config)
-    # print(model)
+    # Tokenizer check: this script requires a fast tokenizer
     if not isinstance(tokenizer, PreTrainedTokenizerFast):
         raise ValueError(
             "This example script only works for models that have a fast tokenizer. Checkout the big table of models at"
@@ -329,8 +326,6 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
                 # Special tokens have a word id that is None. We set the label to -100 so they are automatically
                 # ignored in the loss function.
                 if word_idx is None:
-                    # print("ids appended")
-                    # label_ids.append(config.label2id["O"])
                     label_ids.append(-100)
                 # We set the label for the first token of each word.
                 elif word_idx != previous_word_idx:
