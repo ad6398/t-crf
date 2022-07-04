@@ -8,7 +8,6 @@ import logging
 import os
 import sys
 from dataclasses import dataclass, field
-from typing import Optional
 
 import datasets
 import numpy as np
@@ -34,8 +33,7 @@ from transformers.utils import check_min_version
 
 from transformers.utils.versions import require_version
 
-from .models import AutoCrfModelforSequenceTagging
-from .trainers import CrfTrainer
+from .models import CRFforSequenceTagging
 from .utils import (
     DataArguments,
     ModelArguments,
@@ -224,6 +222,16 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
     )
 
     config.use_crf = model_args.use_crf
+    # Set the correspondences label/ID inside the model config
+    config.label2id = {l: i for i, l in enumerate(label_list)}
+    config.id2label = {i: l for i, l in enumerate(label_list)}
+    # Congigs realted to CRF TODO
+    # Indicates label encoding to find contraint transition. Current choices are
+    # "BIO", "IOB1", "BIOUL", and "BMES".
+    config.label_encoding = data_args.label_encoding
+    # include_start_end_transitions : `bool`, optional (default = `True`)
+    # Whether to include the start and end transition parameters.
+    config.include_start_end_transitions = data_args.include_start_end_transitions
 
     tokenizer_name_or_path = (
         model_args.tokenizer_name
@@ -247,12 +255,7 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
             revision=model_args.model_revision,
             use_auth_token=True if model_args.use_auth_token else None,
         )
-
-    model = (
-        AutoCrfModelforSequenceTagging
-        if model_args.use_crf
-        else AutoModelForTokenClassification
-    ).from_pretrained(
+    model = CRFforSequenceTagging.from_pretrained(
         model_args.model_name_or_path,
         from_tf=bool(".ckpt" in model_args.model_name_or_path),
         config=config,
@@ -260,9 +263,10 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
         ignore_mismatched_sizes=model_args.ignore_mismatched_sizes,
+        model_args=model_args,
     )
 
-    # Tokenizer check: this script requires a fast tokenizer.
+    # Tokenizer check: this script requires a fast tokenizer
     if not isinstance(tokenizer, PreTrainedTokenizerFast):
         raise ValueError(
             "This example script only works for models that have a fast tokenizer. Checkout the big table of models at"
@@ -288,17 +292,6 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
                 f"model labels: {list(sorted(model.config.label2id.keys()))}, dataset labels:"
                 f" {list(sorted(label_list))}.\nIgnoring the model labels as a result.",
             )
-
-    # Set the correspondences label/ID inside the model config
-    model.config.label2id = {l: i for i, l in enumerate(label_list)}
-    model.config.id2label = {i: l for i, l in enumerate(label_list)}
-    # Congigs realted to CRF TODO
-    # Indicates label encoding to find contraint transition. Current choices are
-    # "BIO", "IOB1", "BIOUL", and "BMES".
-    model.config.label_encoding = data_args.label_encoding
-    # include_start_end_transitions : `bool`, optional (default = `True`)
-    # Whether to include the start and end transition parameters.
-    model.config.include_start_end_transitions = data_args.include_start_end_transitions
 
     # Map that sends B-Xxx label to its I-Xxx counterpart
     b_to_i_label = []
@@ -444,7 +437,7 @@ def run_tcrf(model_args=None, data_args=None, training_args=None):
             }
 
     # Initialize our Trainer
-    trainer = (CrfTrainer if model_args.use_crf else Trainer)(
+    trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset if training_args.do_train else None,
