@@ -8,7 +8,6 @@ import logging
 import os
 import sys
 from dataclasses import dataclass, field
-from typing import Optional
 
 import datasets
 import numpy as np
@@ -34,8 +33,7 @@ from transformers.utils import check_min_version
 
 from transformers.utils.versions import require_version
 
-from .models import AutoCrfModelforSequenceTagging, CRFforSequenceTagging
-from .trainers import CrfTrainer
+from .models import CRFforSequenceTagging
 from .utils import (
     DataArguments,
     ModelArguments,
