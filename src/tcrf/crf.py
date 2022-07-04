@@ -6,7 +6,6 @@ from typing import List, Tuple, Dict, Union
 import torch
 
 VITERBI_DECODING = Tuple[List[int], float]
-torch.autograd.set_detect_anomaly(True)
 
 
 class ConditionalRandomField(torch.nn.Module):
@@ -126,9 +125,6 @@ class ConditionalRandomField(torch.nn.Module):
         batch_size, sequence_length, _ = logits.data.shape
 
         # Transpose batch size and sequence dimensions:
-        # mask[tags == -100] = 0
-        # tags[tags == -100] = self.label2id[self.id2label.keys()[0]]
-
         logits = logits.transpose(0, 1).contiguous()
         mask = mask.transpose(0, 1).contiguous()
         tags = tags.transpose(0, 1).contiguous()
@@ -140,36 +136,13 @@ class ConditionalRandomField(torch.nn.Module):
             score = 0.0
 
         # Add up the scores for the observed transitions and all the inputs but the last
-        # print(mask.shape, tags.shape, logits.shape, sequence_length)
-
-        tag_npt_found = 0
         for i in range(sequence_length - 1):
             # Each is shape (batch_size,)
             current_tag, next_tag = tags[i], tags[i + 1]
-            # change to tag "O" whose label is -100
-            # current_tag[current_tag == -100] = self.label2id["O"]
-            # next_tag[next_tag == -100] = self.label2id["O"]
-            # print(current_tag, next_tag)
-            # remove_out_of_idx = (
-            #     sum(current_tag == x for x in self.idx2tag.keys()).bool()
-            #     & sum(next_tag == x for x in self.idx2tag.keys()).bool()
-            # )
-            # current_tag_ = current_tag[remove_out_of_idx]
-            # next_tag_ = next_tag[remove_out_of_idx]
-            # if not torch.all(
-            #     sum(current_tag == x for x in self.id2label.keys()).bool()
-            # ) or not torch.all(sum(next_tag == x for x in self.id2label.keys()).bool()):
-            #     print("no tag found ", i, current_tag, next_tag)
-            #     print(i, sequence_length)
-            # tag_npt_found += 1
-            # continue
-            # print("tags printiiinggggg")
-            # print(i, current_tag.view(-1), next_tag)
             # The scores for transitioning from current_tag to next_tag
             transition_score = self.transitions[current_tag.view(-1), next_tag.view(-1)]
 
             # The score for using current_tag
-            # print("transition score size", transition_score)
             emit_score = logits[i].gather(1, current_tag.view(batch_size, 1)).squeeze(1)
             # emit_score= 0
             # Include transition score if next element is unmasked,
@@ -178,9 +151,7 @@ class ConditionalRandomField(torch.nn.Module):
 
         # Transition from last state to "stop" state. To start with, we need to find the last tag
         # for each instance.
-        # print(
-        #     "tag not found out of {} out of {}".format(tag_npt_found, sequence_length)
-        # )
+
         last_tag_index = mask.sum(0).long() - 1
         last_tags = tags.gather(0, last_tag_index.view(1, batch_size)).squeeze(0)
 
@@ -207,22 +178,17 @@ class ConditionalRandomField(torch.nn.Module):
         """
         Computes the log likelihood.
         """
-        # mask[tags == -100] = 0
         if mask is None:
             mask = torch.ones(*tags.size(), dtype=torch.bool)
         else:
             # The code below fails in weird ways if this isn't a bool tensor, so we make sure.
             mask[tags == -100] = 0
             mask = mask.to(torch.bool)
-        # print("forward",inputs.shape, tags.shape, mask.shape)
         tags[tags == -100] = self.label2id[self.id2label[0]]
 
         log_denominator = self._input_likelihood(inputs, mask)
-        # temp_tags= tags
-        # tags[tags==-100]=2
-        # print(tags[0])
+
         log_numerator = self._joint_likelihood(inputs, tags, mask)
-        # tags[mask==0]=-100
         return torch.sum(log_numerator - log_denominator)
 
     def viterbi_tags(
